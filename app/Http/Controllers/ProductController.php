@@ -20,6 +20,57 @@ class ProductController extends Controller
         return view('products.index');
     }
 
+    public function products()
+    {
+        $src = $_GET['src'] ?? null;
+        if (!empty($src)) {
+            $datatable = Product::where('name', 'like', '%' . $src . '%')
+                ->orWhere('name_l', 'like', '%' . $src . '%')
+                ->orWhere('card', 'like', '%' . $src . '%')
+                ->orWhere('phone', 'like', '%' . $src . '%')
+                ->orWhere('phone_alt', 'like', '%' . $src . '%')
+                ->orWhere('email', 'like', '%' . $src . '%')
+                ->orWhere('address', 'like', '%' . $src . '%')
+                ->withTrashed()->with('customer_type')
+                ->latest()->paginate(2);
+        } else {
+            $datatable = Product::with(['variants' => function ($query) {
+                $query->with('variant_one','variant_two','variant_three');
+            }])->latest()->paginate(2);
+        }
+        
+        return response()->json([
+            'datatable'         =>  $datatable,
+            'page'              =>  [
+                'theads'                        =>  [
+                    (object)[
+                        'txt'   =>  '#',
+                        'style' =>  ['width'=>'5%']
+                    ],
+                    (object)[
+                        'txt'   =>  __('Title'),
+                        'style' =>  ['width'=>'15%']
+                    ],
+                    (object)[
+                        'txt'   =>  __('Description'),
+                        'style' =>  ['width'=>'25%'],
+                        'class' =>  'text-center'
+                    ],
+                    (object)[
+                        'txt'   =>  __('Varient'),
+                        'style' =>  ['width'=>'40%'],
+                        'class' =>  'text-center'
+                    ],
+                    (object)[
+                        'txt'   =>  __('Aaction'),
+                        'style' =>  ['width'=>'10%'],
+                        'class' =>  'text-center'
+                    ],
+                ]
+            ]
+        ]);
+    }
+
     /**
      * Show the form for creating a new resource.
      *

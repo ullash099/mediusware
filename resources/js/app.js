@@ -14,3 +14,4 @@ require("./sb-admin");
  */
 
 require("./components/CreateProduct");
+require("./components/ProductList");

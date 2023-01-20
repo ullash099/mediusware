@@ -221,7 +221,7 @@ const CreateProduct = () => {
         checkVariant();
     }, [formData.product_variant]);
 
-    const thumbs = formData.images.map(file => (
+    const thumbs = formData.images.map(file => {
         <div style={thumb} key={file.name}>
             <div style={thumbInner}>
                 <img
@@ -234,7 +234,7 @@ const CreateProduct = () => {
                 />
             </div>
         </div>
-    ));
+    });
 
     return (
         <section>
