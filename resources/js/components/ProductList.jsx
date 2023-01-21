@@ -1,7 +1,8 @@
 import axios from "axios"
 import React from 'react'
-import { Button, Card, Col, Pagination, Row, Spinner, Table } from 'react-bootstrap';
+import { Button, Card, Col, InputGroup, Pagination, Row, Spinner, Table } from 'react-bootstrap';
 import ReactDOM from "react-dom"
+import Select from 'react-select'
 
 export default function ProductList(props) {
     const [isrefreshingList,setRefreshingList] = React.useState(false)
@@ -47,6 +48,17 @@ export default function ProductList(props) {
         })
     }
 
+    const [variants,setVariants] = React.useState([])
+    const [src,setSrc] = React.useState({
+        title : ``,
+        variant : 0,
+        max_price : 0,
+        min_price : 0,
+        min_price : 0,
+        date : ``,
+
+    })
+
     const handlePaginations = async (page) => {
         let url = datatable.path
         url = `${url}?page=${page}`
@@ -85,7 +97,72 @@ export default function ProductList(props) {
         <Row>
             <Col>
                 <Card>
-                    <Card.Header></Card.Header>
+                    <Card.Header>
+                        <Row className="justify-content-between">
+                            <Col md={2}>
+                                <input type="text" 
+                                    className="form-control"
+                                    name="title" 
+                                    placeholder="Product Title"  
+                                    onChange={e=>setSrc({
+                                        ...src,
+                                        title : e.target.value
+                                    })}
+                                />
+                            </Col>
+                            <Col md={2}>
+                                <Select isClearable={true}
+                                    options={variants} 
+                                    value={variants && variants.filter(
+                                        option => (src.variant && option.value.toString() === (src.variant).toString())
+                                    )}
+                                    onChange={option => setSrc({
+                                        ...src,
+                                        variant : option ? option.value.toString() : 0
+                                    })}
+                                />
+                            </Col>
+                            <Col md={3}>
+                                <InputGroup>
+                                    <InputGroup.Text>Price Range</InputGroup.Text>
+                                    <input type="text" 
+                                        name="price_from" 
+                                        aria-label="First name" 
+                                        placeholder="From" 
+                                        className="form-control"
+                                        onChange={e=>setSrc({
+                                            ...src,
+                                            min_price : e.target.value
+                                        })}
+                                    />
+                                    <input type="text" 
+                                        name="price_to" 
+                                        aria-label="Last name" 
+                                        placeholder="To" 
+                                        className="form-control" 
+                                        onChange={e=>setSrc({
+                                            ...src,
+                                            max_price : e.target.value
+                                        })}
+                                    />
+                                </InputGroup>
+                            </Col>
+                            <Col md={2}>
+                                <input type="date" name="date" 
+                                    placeholder="Date" className="form-control"
+                                    onChange={e=>setSrc({
+                                        ...src,
+                                        date : e.target.value
+                                    })}
+                                />
+                            </Col>
+                            <Col md={1}>
+                                <button type="submit" className="btn btn-primary float-right">
+                                    <i className="fa fa-search"></i>
+                                </button>
+                            </Col>
+                        </Row>
+                    </Card.Header>
                     <Card.Body>
                         <Table striped responsive bordered size="sm" className='border-success mb-0'>
                             <thead>
