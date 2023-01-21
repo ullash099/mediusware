@@ -9,6 +9,8 @@ use App\Models\ProductVariant;
 use Illuminate\Support\Facades\DB;
 use App\Models\ProductVariantPrice;
 
+use function GuzzleHttp\Promise\all;
+
 class ProductController extends Controller
 {
     /**
@@ -30,12 +32,13 @@ class ProductController extends Controller
         $date = $_GET['date'] ?? null;
 
         if (!empty($title) || !empty($variant) || !empty($min_price) || !empty($max_price) || !empty($date)) {
+            DB::enableQueryLog();
             $variantList = [];
             if (!empty($variant)) {
                 $variantList = Product::select('product_variants.id')
                 ->join('product_variants','product_variants.product_id','=','products.id')
                 ->where(function($vq) use ($title, $variant, $date){
-                    $vq->where('variant_id',$variant);
+                    $vq->where('variant',$variant);
                     if (!empty($title) && !empty($date)) {
                         $vq->where('products.title', 'like', '%' . $title . '%')
                         ->orwhereDate('products.created_at', '=', date('Y-m-d',strtotime($date)));
@@ -49,7 +52,7 @@ class ProductController extends Controller
                 })
                 ->get();
             }
-            $datatable = Product::where(function($q) use ($title, $date) {
+            $datatable = Product::where(function($q) use ($title, $date,$variantList) {
                 if (!empty($title) && !empty($date)) {
                     $q->where('title', 'like', '%' . $title . '%')
                     ->orwhereDate('created_at', '=', date('Y-m-d',strtotime($date)));
@@ -63,26 +66,51 @@ class ProductController extends Controller
             })
             ->with(['variants' => function ($query) use ($variantList,$min_price,$max_price) {
                 if (!empty($variantList)){
-                    $query->whereIn('product_variant_one',$variantList)
-                    ->orWhereIn('product_variant_two',$variantList)
-                    ->orWhereIn('product_variant_two',$variantList);
+                    $query->where(function($vq) use ($variantList){
+                        $vq->whereIn('product_variant_one',$variantList)
+                        ->orWhereIn('product_variant_two',$variantList)
+                        ->orWhereIn('product_variant_two',$variantList);
+                    });
                 }
                 if (!empty($min_price) && !empty($max_price)){
                     $query->whereBetween('price',[$min_price,$max_price]);
                 }
                 $query->with('variant_one','variant_two','variant_three');
             }])->latest('created_at')->paginate(2);
+
+            #dd(DB::getQueryLog());
         } else {
             $datatable = Product::with(['variants' => function ($query) {
                 $query->with('variant_one','variant_two','variant_three');
             }])->latest()->paginate(2);
         }
+
+        $variants = [];
+        $variantsInfo = Variant::all();
+        foreach ($variantsInfo as $var) {
+            $sub = [];
+
+            $product_variants = DB::table('product_variants')
+            ->select('variant')
+            ->where('variant_id',$var->id)
+            ->groupBy('variant')->get();
+            
+            foreach ($product_variants as $pv) {
+                array_push($sub,(object)[
+                    'title'     =>  $pv->variant,
+                ]);
+            }
+            array_push($variants,(object)[
+                'title'     =>  $var->title,
+                'subs'      =>  $sub
+            ]);
+        }
         
         return response()->json([
             'datatable'         =>  $datatable,
-            'variants'          =>  Variant::all(),
+            'variants'          =>  $variants,
             'page'              =>  [
-                'theads'                        =>  [
+                'theads'        =>  [
                     (object)[
                         'txt'   =>  '#',
                         'style' =>  ['width'=>'5%']

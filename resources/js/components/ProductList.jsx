@@ -43,10 +43,23 @@ export default function ProductList(props) {
             let options = [];
             if(Object.keys(info.variants).length > 0){
                 Object.values(info.variants).map(vari=>{
+                    let childs = []
+                    if(Object.keys(vari.subs).length > 0){
+                        Object.values(vari.subs).map(sub=>{
+                            childs.push({
+                                value : sub.title,
+                                label : sub.title
+                            })
+                        })
+                    }
                     options.push({
-                        value: vari.id,
-                        label : vari.title
+                        label : vari.title,
+                        options : childs
                     })
+                    /* options.push({
+                        value: vari.title,
+                        label : vari.title
+                    }) */
                 })
                 setVariants(options)
             }else{
@@ -63,7 +76,7 @@ export default function ProductList(props) {
     }
     const [src,setSrc] = React.useState({
         title : ``,
-        variant : 0,
+        variant : ``,
         max_price : 0,
         min_price : 0,
         min_price : 0,
@@ -75,6 +88,19 @@ export default function ProductList(props) {
         setRefreshingList(true)
         let url = datatable.path
         url = `${url}?page=${page}`
+
+        if(src.title){
+            url = `${url}&title=${(src.title).replace(/ /g, "%20")}`
+        }
+        if(src.variant){
+            url = `${url}&variant=${(src.variant)}`
+        }
+        if(src.min_price && src.max_price){
+            url = `${url}&min_price=${(src.min_price)}&max_price=${(src.max_price)}`
+        }
+        if(src.date){
+            url = `${url}&date=${(src.date)}`
+        }
         
         await axios.get(url)
         .then(function (response) {
@@ -168,14 +194,14 @@ export default function ProductList(props) {
                             </Col>
                             <Col md={2}>
                                 <Select isClearable={true}
-                                    options={variants} 
-                                    value={variants && variants.filter(
-                                        option => (src.variant && option.value.toString() === (src.variant).toString())
-                                    )}
-                                    onChange={option => setSrc({
-                                        ...src,
-                                        variant : option ? option.value.toString() : 0
-                                    })}
+                                    options={variants}
+                                    onChange={option => {
+                                        let value = option ? option.value.toString() : ``
+                                        setSrc({
+                                            ...src,
+                                            variant : value
+                                        })
+                                    }}
                                 />
                             </Col>
                             <Col md={3}>

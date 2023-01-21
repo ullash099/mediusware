@@ -5444,11 +5444,25 @@ function ProductList(props) {
               var options = [];
               if (Object.keys(info.variants).length > 0) {
                 Object.values(info.variants).map(function (vari) {
+                  var childs = [];
+                  if (Object.keys(vari.subs).length > 0) {
+                    Object.values(vari.subs).map(function (sub) {
+                      childs.push({
+                        value: sub.title,
+                        label: sub.title
+                      });
+                    });
+                  }
                   options.push({
-                    value: vari.id,
-                    label: vari.title
+                    label: vari.title,
+                    options: childs
                   });
+                  /* options.push({
+                      value: vari.title,
+                      label : vari.title
+                  }) */
                 });
+
                 setVariants(options);
               } else {
                 setVariants(options);
@@ -5471,7 +5485,7 @@ function ProductList(props) {
   }();
   var _React$useState9 = react__WEBPACK_IMPORTED_MODULE_1__.useState((_React$useState11 = {
       title: "",
-      variant: 0,
+      variant: "",
       max_price: 0,
       min_price: 0
     }, _defineProperty(_React$useState11, "min_price", 0), _defineProperty(_React$useState11, "date", ""), _React$useState11)),
@@ -5487,7 +5501,19 @@ function ProductList(props) {
             setRefreshingList(true);
             url = datatable.path;
             url = "".concat(url, "?page=").concat(page);
-            _context2.next = 5;
+            if (src.title) {
+              url = "".concat(url, "&title=").concat(src.title.replace(/ /g, "%20"));
+            }
+            if (src.variant) {
+              url = "".concat(url, "&variant=").concat(src.variant);
+            }
+            if (src.min_price && src.max_price) {
+              url = "".concat(url, "&min_price=").concat(src.min_price, "&max_price=").concat(src.max_price);
+            }
+            if (src.date) {
+              url = "".concat(url, "&date=").concat(src.date);
+            }
+            _context2.next = 9;
             return axios__WEBPACK_IMPORTED_MODULE_0___default().get(url).then(function (response) {
               var info = response.data;
               setPage(info.page);
@@ -5508,7 +5534,7 @@ function ProductList(props) {
                 location.reload();
               }
             });
-          case 5:
+          case 9:
           case "end":
             return _context2.stop();
         }
@@ -5591,12 +5617,10 @@ function ProductList(props) {
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_1__.createElement(react_select__WEBPACK_IMPORTED_MODULE_6__["default"], {
     isClearable: true,
     options: variants,
-    value: variants && variants.filter(function (option) {
-      return src.variant && option.value.toString() === src.variant.toString();
-    }),
     onChange: function onChange(option) {
-      return setSrc(_objectSpread(_objectSpread({}, src), {}, {
-        variant: option ? option.value.toString() : 0
+      var value = option ? option.value.toString() : "";
+      setSrc(_objectSpread(_objectSpread({}, src), {}, {
+        variant: value
       }));
     }
   })), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_1__.createElement(react_bootstrap__WEBPACK_IMPORTED_MODULE_4__["default"], {
