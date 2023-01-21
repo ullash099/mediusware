@@ -5398,11 +5398,15 @@ function ProductList(props) {
     _React$useState2 = _slicedToArray(_React$useState, 2),
     isrefreshingList = _React$useState2[0],
     setRefreshingList = _React$useState2[1];
-  var _React$useState3 = react__WEBPACK_IMPORTED_MODULE_1__.useState({}),
+  var _React$useState3 = react__WEBPACK_IMPORTED_MODULE_1__.useState([]),
     _React$useState4 = _slicedToArray(_React$useState3, 2),
-    page = _React$useState4[0],
-    setPage = _React$useState4[1];
-  var _React$useState5 = react__WEBPACK_IMPORTED_MODULE_1__.useState({
+    variants = _React$useState4[0],
+    setVariants = _React$useState4[1];
+  var _React$useState5 = react__WEBPACK_IMPORTED_MODULE_1__.useState({}),
+    _React$useState6 = _slicedToArray(_React$useState5, 2),
+    page = _React$useState6[0],
+    setPage = _React$useState6[1];
+  var _React$useState7 = react__WEBPACK_IMPORTED_MODULE_1__.useState({
       infos: {},
       prev_page_url: null,
       last_page_url: null,
@@ -5413,9 +5417,9 @@ function ProductList(props) {
       to: 0,
       total: 0
     }),
-    _React$useState6 = _slicedToArray(_React$useState5, 2),
-    datatable = _React$useState6[0],
-    setDatatable = _React$useState6[1];
+    _React$useState8 = _slicedToArray(_React$useState7, 2),
+    datatable = _React$useState8[0],
+    setDatatable = _React$useState8[1];
   var handleGetStartUpData = /*#__PURE__*/function () {
     var _ref = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime().mark(function _callee() {
       return _regeneratorRuntime().wrap(function _callee$(_context) {
@@ -5437,6 +5441,18 @@ function ProductList(props) {
                 to: info.datatable.to,
                 total: info.datatable.total
               }));
+              var options = [];
+              if (Object.keys(info.variants).length > 0) {
+                Object.values(info.variants).map(function (vari) {
+                  options.push({
+                    value: vari.id,
+                    label: vari.title
+                  });
+                });
+                setVariants(options);
+              } else {
+                setVariants(options);
+              }
               setRefreshingList(false);
             })["catch"](function (error) {
               if (error.request && error.request.status == 401) {
@@ -5453,10 +5469,6 @@ function ProductList(props) {
       return _ref.apply(this, arguments);
     };
   }();
-  var _React$useState7 = react__WEBPACK_IMPORTED_MODULE_1__.useState([]),
-    _React$useState8 = _slicedToArray(_React$useState7, 2),
-    variants = _React$useState8[0],
-    setVariants = _React$useState8[1];
   var _React$useState9 = react__WEBPACK_IMPORTED_MODULE_1__.useState((_React$useState11 = {
       title: "",
       variant: 0,
@@ -5472,9 +5484,10 @@ function ProductList(props) {
       return _regeneratorRuntime().wrap(function _callee2$(_context2) {
         while (1) switch (_context2.prev = _context2.next) {
           case 0:
+            setRefreshingList(true);
             url = datatable.path;
             url = "".concat(url, "?page=").concat(page);
-            _context2.next = 4;
+            _context2.next = 5;
             return axios__WEBPACK_IMPORTED_MODULE_0___default().get(url).then(function (response) {
               var info = response.data;
               setPage(info.page);
@@ -5495,7 +5508,7 @@ function ProductList(props) {
                 location.reload();
               }
             });
-          case 4:
+          case 5:
           case "end":
             return _context2.stop();
         }
@@ -5503,6 +5516,57 @@ function ProductList(props) {
     }));
     return function handlePaginations(_x2) {
       return _ref2.apply(this, arguments);
+    };
+  }();
+  var handleSearch = /*#__PURE__*/function () {
+    var _ref3 = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime().mark(function _callee3() {
+      var url;
+      return _regeneratorRuntime().wrap(function _callee3$(_context3) {
+        while (1) switch (_context3.prev = _context3.next) {
+          case 0:
+            url = datatable.path;
+            url = "".concat(url, "?p=p");
+            if (src.title) {
+              url = "".concat(url, "&title=").concat(src.title.replace(/ /g, "%20"));
+            }
+            if (src.variant) {
+              url = "".concat(url, "&variant=").concat(src.variant);
+            }
+            if (src.min_price && src.max_price) {
+              url = "".concat(url, "&min_price=").concat(src.min_price, "&max_price=").concat(src.max_price);
+            }
+            if (src.date) {
+              url = "".concat(url, "&date=").concat(src.date);
+            }
+            _context3.next = 8;
+            return axios__WEBPACK_IMPORTED_MODULE_0___default().get(url).then(function (response) {
+              var info = response.data;
+              setPage(info.page);
+              setDatatable(_objectSpread(_objectSpread({}, datatable), {}, {
+                infos: info.datatable.data,
+                prev_page_url: info.datatable.prev_page_url,
+                last_page_url: info.datatable.last_page_url,
+                current_page: info.datatable.current_page,
+                per_page: info.datatable.per_page,
+                path: info.datatable.path,
+                from: info.datatable.from,
+                to: info.datatable.to,
+                total: info.datatable.total
+              }));
+              setRefreshingList(false);
+            })["catch"](function (error) {
+              if (error.request && error.request.status == 401) {
+                location.reload();
+              }
+            });
+          case 8:
+          case "end":
+            return _context3.stop();
+        }
+      }, _callee3);
+    }));
+    return function handleSearch() {
+      return _ref3.apply(this, arguments);
     };
   }();
   react__WEBPACK_IMPORTED_MODULE_1__.useEffect(function () {
@@ -5575,7 +5639,8 @@ function ProductList(props) {
     md: 1
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_1__.createElement("button", {
     type: "submit",
-    className: "btn btn-primary float-right"
+    className: "btn btn-primary float-right",
+    onClick: handleSearch.bind(this)
   }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_1__.createElement("i", {
     className: "fa fa-search"
   }))))), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_1__.createElement(react_bootstrap__WEBPACK_IMPORTED_MODULE_5__["default"].Body, null, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_1__.createElement(react_bootstrap__WEBPACK_IMPORTED_MODULE_8__["default"], {

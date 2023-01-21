@@ -3,10 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
-use App\Models\ProductVariant;
-use App\Models\ProductVariantPrice;
 use App\Models\Variant;
 use Illuminate\Http\Request;
+use App\Models\ProductVariant;
+use Illuminate\Support\Facades\DB;
+use App\Models\ProductVariantPrice;
 
 class ProductController extends Controller
 {
@@ -22,17 +23,55 @@ class ProductController extends Controller
 
     public function products()
     {
-        $src = $_GET['src'] ?? null;
-        if (!empty($src)) {
-            $datatable = Product::where('name', 'like', '%' . $src . '%')
-                ->orWhere('name_l', 'like', '%' . $src . '%')
-                ->orWhere('card', 'like', '%' . $src . '%')
-                ->orWhere('phone', 'like', '%' . $src . '%')
-                ->orWhere('phone_alt', 'like', '%' . $src . '%')
-                ->orWhere('email', 'like', '%' . $src . '%')
-                ->orWhere('address', 'like', '%' . $src . '%')
-                ->withTrashed()->with('customer_type')
-                ->latest()->paginate(2);
+        $title = $_GET['title'] ?? null;
+        $variant = $_GET['variant'] ?? null;
+        $min_price = $_GET['min_price'] ?? null;
+        $max_price = $_GET['max_price'] ?? null;
+        $date = $_GET['date'] ?? null;
+
+        if (!empty($title) || !empty($variant) || !empty($min_price) || !empty($max_price) || !empty($date)) {
+            $variantList = [];
+            if (!empty($variant)) {
+                $variantList = Product::select('product_variants.id')
+                ->join('product_variants','product_variants.product_id','=','products.id')
+                ->where(function($vq) use ($title, $variant, $date){
+                    $vq->where('variant_id',$variant);
+                    if (!empty($title) && !empty($date)) {
+                        $vq->where('products.title', 'like', '%' . $title . '%')
+                        ->orwhereDate('products.created_at', '=', date('Y-m-d',strtotime($date)));
+                    }
+                    elseif (!empty($title)) {
+                        $vq->where('products.title', 'like', '%' . $title . '%');
+                    }
+                    elseif (!empty($date)) {
+                        $vq->whereDate('products.created_at', '=', date('Y-m-d',strtotime($date)));
+                    }
+                })
+                ->get();
+            }
+            $datatable = Product::where(function($q) use ($title, $date) {
+                if (!empty($title) && !empty($date)) {
+                    $q->where('title', 'like', '%' . $title . '%')
+                    ->orwhereDate('created_at', '=', date('Y-m-d',strtotime($date)));
+                }
+                elseif (!empty($title)) {
+                    $q->where('title', 'like', '%' . $title . '%');
+                }
+                elseif (!empty($date)) {
+                    $q->whereDate('created_at', '=', date('Y-m-d',strtotime($date)));
+                }
+            })
+            ->with(['variants' => function ($query) use ($variantList,$min_price,$max_price) {
+                if (!empty($variantList)){
+                    $query->whereIn('product_variant_one',$variantList)
+                    ->orWhereIn('product_variant_two',$variantList)
+                    ->orWhereIn('product_variant_two',$variantList);
+                }
+                if (!empty($min_price) && !empty($max_price)){
+                    $query->whereBetween('price',[$min_price,$max_price]);
+                }
+                $query->with('variant_one','variant_two','variant_three');
+            }])->latest('created_at')->paginate(2);
         } else {
             $datatable = Product::with(['variants' => function ($query) {
                 $query->with('variant_one','variant_two','variant_three');
@@ -41,6 +80,7 @@ class ProductController extends Controller
         
         return response()->json([
             'datatable'         =>  $datatable,
+            'variants'          =>  Variant::all(),
             'page'              =>  [
                 'theads'                        =>  [
                     (object)[

@@ -6,7 +6,7 @@ import Select from 'react-select'
 
 export default function ProductList(props) {
     const [isrefreshingList,setRefreshingList] = React.useState(false)
-
+    const [variants,setVariants] = React.useState([])
     const [page,setPage] = React.useState({})
     const [datatable,setDatatable] = React.useState({
         infos : {},
@@ -39,6 +39,20 @@ export default function ProductList(props) {
                 to : info.datatable.to,
                 total : info.datatable.total
             })
+
+            let options = [];
+            if(Object.keys(info.variants).length > 0){
+                Object.values(info.variants).map(vari=>{
+                    options.push({
+                        value: vari.id,
+                        label : vari.title
+                    })
+                })
+                setVariants(options)
+            }else{
+                setVariants(options)
+            }
+
             setRefreshingList(false)
         })
         .catch(function (error) {
@@ -47,8 +61,6 @@ export default function ProductList(props) {
             }
         })
     }
-
-    const [variants,setVariants] = React.useState([])
     const [src,setSrc] = React.useState({
         title : ``,
         variant : 0,
@@ -60,8 +72,52 @@ export default function ProductList(props) {
     })
 
     const handlePaginations = async (page) => {
+        setRefreshingList(true)
         let url = datatable.path
         url = `${url}?page=${page}`
+        
+        await axios.get(url)
+        .then(function (response) {
+            let info = response.data
+            setPage(info.page)
+
+            setDatatable({
+                ...datatable,
+                infos : info.datatable.data,
+                prev_page_url : info.datatable.prev_page_url,
+                last_page_url : info.datatable.last_page_url,
+                current_page : info.datatable.current_page,
+                per_page : info.datatable.per_page,
+                path : info.datatable.path,
+                from : info.datatable.from,
+                to : info.datatable.to,
+                total : info.datatable.total
+            })
+            setRefreshingList(false)
+        })
+        .catch(function (error) {
+            if(error.request && error.request.status == 401){
+              location.reload()
+            }
+        })
+    }
+
+    const handleSearch = async () => {
+
+        let url = datatable.path
+        url = `${url}?p=p`
+        if(src.title){
+            url = `${url}&title=${(src.title).replace(/ /g, "%20")}`
+        }
+        if(src.variant){
+            url = `${url}&variant=${(src.variant)}`
+        }
+        if(src.min_price && src.max_price){
+            url = `${url}&min_price=${(src.min_price)}&max_price=${(src.max_price)}`
+        }
+        if(src.date){
+            url = `${url}&date=${(src.date)}`
+        }
         
         await axios.get(url)
         .then(function (response) {
@@ -157,7 +213,9 @@ export default function ProductList(props) {
                                 />
                             </Col>
                             <Col md={1}>
-                                <button type="submit" className="btn btn-primary float-right">
+                                <button type="submit" className="btn btn-primary float-right"
+                                    onClick={handleSearch.bind(this)}
+                                >
                                     <i className="fa fa-search"></i>
                                 </button>
                             </Col>
