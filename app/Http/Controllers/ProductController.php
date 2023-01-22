@@ -3,14 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
-use App\Models\ProductImage;
 use App\Models\Variant;
+use App\Models\ProductImage;
 use Illuminate\Http\Request;
 use App\Models\ProductVariant;
 use Illuminate\Support\Facades\DB;
 use App\Models\ProductVariantPrice;
 
 use function GuzzleHttp\Promise\all;
+use Illuminate\Support\Facades\Validator;
 
 class ProductController extends Controller
 {
@@ -33,7 +34,7 @@ class ProductController extends Controller
         $date = $_GET['date'] ?? null;
 
         if (!empty($title) || !empty($variant) || !empty($min_price) || !empty($max_price) || !empty($date)) {
-            DB::enableQueryLog();
+            #DB::enableQueryLog();
             $variantList = [];
             if (!empty($variant)) {
                 $variantList = Product::select('product_variants.id')
@@ -151,6 +152,16 @@ class ProductController extends Controller
         return view('products.create', compact('variants'));
     }
 
+    public function validation(Request $request)
+    {
+        return Validator::make($request->all(), [
+            'title'                     => 'required|max:250|unique:products,title,',
+            'sku'                       => 'required|max:250|unique:products,sku,',
+            'description'               => 'required|max:6000',
+            'product_variant'           => 'required',
+            'product_variant_prices'    => 'required',
+        ]);
+    }
     /**
      * Store a newly created resource in storage.
      *
@@ -159,6 +170,11 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
+        $isValid = $this->validation($request);
+        if ($isValid->fails()) {
+            return response()->json(['errors' => $isValid->errors()->all()]);
+        }
+
         $product = [
             'title'         =>  $request->title,
             'sku'           =>  $request->sku,
@@ -232,7 +248,7 @@ class ProductController extends Controller
             return response()->json(['success'  =>  'Successfully Saved']);
         } catch (\Throwable $th) {
             DB::rollback();
-            return response()->json(['errors' => ['There is a problem please try again',$th]]);
+            return response()->json(['errors' => ['There is a problem please try again']]);
         }
     }
 

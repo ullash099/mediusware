@@ -3,6 +3,8 @@ import ReactDOM from "react-dom";
 import axios from "axios";
 import { useDropzone } from "react-dropzone";
 import { TagsInput } from "react-tag-input-component";
+import { ToastContainer } from "react-toastify";
+import { ShowToast } from "./Context";
 
 const thumbsContainer = {
     display: "flex",
@@ -194,7 +196,15 @@ const CreateProduct = () => {
 
         await axios.post("/product",form)
         .then(response => {
-            console.log(response.data);
+            let info = response.data
+            if(info.errors){
+                (info.errors).map((error)=>(
+                    ShowToast({ type : 'error', msg  : error })
+                ))
+            }
+            else if(info.success){
+                ShowToast({ type : 'success', msg  : info.success })
+            }
         })
         .catch(error => {
             console.log(error);
@@ -458,6 +468,8 @@ const CreateProduct = () => {
             <button type="button" className="btn btn-secondary btn-lg ml-2">
                 Cancel
             </button>
+
+            <ToastContainer />
         </section>
     );
 };
