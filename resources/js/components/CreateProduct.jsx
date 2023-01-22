@@ -37,7 +37,7 @@ const img = {
 
 const CreateProduct = () => {
     const [variants, setVariants] = useState([]);
-    const [formData, setFormData] = useState({
+    const [productData, setProductData] = useState({
         product_name: "",
         product_sku: "",
         description: "",
@@ -52,7 +52,7 @@ const CreateProduct = () => {
                 preview: URL.createObjectURL(file)
             })
         );
-        setFormData(prevState => ({
+        setProductData(prevState => ({
             ...prevState,
             images: [...prevState.images, ...images]
         }));
@@ -67,7 +67,7 @@ const CreateProduct = () => {
 
     // on change form input
     const onInputChange = (name, value) => {
-        setFormData(prevState => ({
+        setProductData(prevState => ({
             ...prevState,
             [name]: value
         }));
@@ -75,7 +75,7 @@ const CreateProduct = () => {
 
     // handle variant change
     const handleVariantChange = (index, value) => {
-        setFormData(prevState => ({
+        setProductData(prevState => ({
             ...prevState,
             product_variant: prevState.product_variant.map((item, itemIndex) =>
                 itemIndex === index
@@ -90,7 +90,7 @@ const CreateProduct = () => {
 
     // handle variant remove
     const handleVariantRemove = index => {
-        setFormData(prevState => ({
+        setProductData(prevState => ({
             ...prevState,
             product_variant: prevState.product_variant.filter(
                 (item, itemIndex) => itemIndex !== index
@@ -100,7 +100,7 @@ const CreateProduct = () => {
 
     // handle variant tags add
     const handleVariantTagAdd = (index, tags) => {
-        setFormData(prevState => ({
+        setProductData(prevState => ({
             ...prevState,
             product_variant: prevState.product_variant.map((item, itemIndex) =>
                 itemIndex === index
@@ -115,7 +115,7 @@ const CreateProduct = () => {
 
     // handle variant price change
     const handleVariantPriceChange = (index, updatedItem) => {
-        setFormData(prevState => ({
+        setProductData(prevState => ({
             ...prevState,
             product_variant_prices: prevState.product_variant_prices.map(
                 (item, itemIndex) => (itemIndex === index ? updatedItem : item)
@@ -139,12 +139,12 @@ const CreateProduct = () => {
     // it will push a new object into product variant
     const newVariant = () => {
         let all_variants = variants.map(el => el.id);
-        let selected_variants = formData.product_variant.map(el => el.option);
+        let selected_variants = productData.product_variant.map(el => el.option);
         let available_variants = all_variants.filter(
             entry1 => !selected_variants.some(entry2 => entry1 == entry2)
         );
 
-        setFormData(prevState => ({
+        setProductData(prevState => ({
             ...prevState,
             product_variant: [
                 ...prevState.product_variant,
@@ -160,7 +160,7 @@ const CreateProduct = () => {
     const checkVariant = product_variant => {
         let tags = [];
         const product_variant_prices = [];
-        formData.product_variant.forEach(item => {
+        productData.product_variant.forEach(item => {
             tags.push(item.tags);
         });
 
@@ -175,35 +175,35 @@ const CreateProduct = () => {
             });
         }
 
-        setFormData(prevState => ({ ...prevState, product_variant_prices }));
+        setProductData(prevState => ({ ...prevState, product_variant_prices }));
     };
 
     // store product into database
-    const saveProduct = () => {
-        let product = {
-            title: formData.product_name,
-            sku: formData.product_sku,
-            description: formData.description,
-            product_image: formData.images,
-            product_variant: formData.product_variant,
-            product_variant_prices: formData.product_variant_prices
-        };
+    const saveProduct = async () => {
+        const form = new FormData()
 
-        axios
-            .post("/product", product)
-            .then(response => {
-                console.log(response.data);
-            })
-            .catch(error => {
-                console.log(error);
-            });
+        form.append(`title`, productData.product_name)
+        form.append(`sku`, productData.product_sku)
+        form.append(`description`, productData.description)
+        form.append(`product_variant`, JSON.stringify(productData.product_variant))
+        form.append(`product_variant_prices`, JSON.stringify(productData.product_variant_prices))
 
-        console.log(product);
+        Object.values(productData.images).map((image,i)=>{
+            form.append(`files[${i}]`, image)
+        })
+
+        await axios.post("/product",form)
+        .then(response => {
+            console.log(response.data);
+        })
+        .catch(error => {
+            console.log(error);
+        });
     };
 
     useEffect(() => {
         axios.get("/api/variants").then(response => {
-            setFormData(prevState => ({
+            setProductData(prevState => ({
                 ...prevState,
                 product_variant: [
                     {
@@ -219,9 +219,9 @@ const CreateProduct = () => {
     // check product_variant_price when product_variant changed
     useEffect(() => {
         checkVariant();
-    }, [formData.product_variant]);
+    }, [productData.product_variant]);
 
-    const thumbs = formData.images.map(file => {
+    const thumbs = productData.images.map(file => {
         <div style={thumb} key={file.name}>
             <div style={thumbInner}>
                 <img
@@ -260,7 +260,7 @@ const CreateProduct = () => {
                                 <label htmlFor="">Product SKU</label>
                                 <input
                                     type="text"
-                                    placeholder="Product Name"
+                                    placeholder="Product SKU"
                                     className="form-control"
                                     onChange={e =>
                                         onInputChange(
@@ -315,8 +315,8 @@ const CreateProduct = () => {
                             </h6>
                         </div>
                         <div className="card-body">
-                            {formData.product_variant.map((item, index) => (
-                                <div className="row">
+                            {productData.product_variant.map((item, index) => (
+                                <div className="row" key={index}>
                                     <div className="col-md-4">
                                         <div className="form-group">
                                             <label htmlFor="">Option</label>
@@ -329,8 +329,8 @@ const CreateProduct = () => {
                                                     )
                                                 }
                                             >
-                                                {variants.map(variant => (
-                                                    <option value={variant.id}>
+                                                {variants.map((variant,vi) => (
+                                                    <option key={vi} value={variant.id}>
                                                         {variant.title}
                                                     </option>
                                                 ))}
@@ -389,9 +389,9 @@ const CreateProduct = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {formData.product_variant_prices.map(
+                                        {productData.product_variant_prices.map(
                                             (variant_price, index) => (
-                                                <tr>
+                                                <tr key={index}>
                                                     <td>
                                                         {variant_price.title}
                                                     </td>
@@ -455,7 +455,7 @@ const CreateProduct = () => {
             >
                 Save
             </button>
-            <button type="button" className="btn btn-secondary btn-lg">
+            <button type="button" className="btn btn-secondary btn-lg ml-2">
                 Cancel
             </button>
         </section>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\ProductImage;
 use App\Models\Variant;
 use Illuminate\Http\Request;
 use App\Models\ProductVariant;
@@ -158,7 +159,81 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
+        $product = [
+            'title'         =>  $request->title,
+            'sku'           =>  $request->sku,
+            'description'   =>  $request->description
+        ];
+        
+        DB::beginTransaction();
+        try {
+            $productInfo = Product::create($product);
+            $product_id = $productInfo->id;
 
+            $images = [];
+            if ($request->file('files')) {
+                $num_elements = 0;
+                $files = $request->file('files');
+                while ($num_elements < count($files)) {
+                    $upload = $files[$num_elements];
+    
+                    $mime = $upload->getClientOriginalExtension();
+                    $name = md5(rand(1,time())).'.'.$mime;
+                    $path = $upload->move('image',$name);
+                    $images[] = [
+                        'product_id'    =>  $product_id,
+                        'file_path'     =>  $path,
+                        'created_at'    =>  now(),
+                        'updated_at'    =>  now(),
+                    ];
+                    $num_elements++;
+                }
+            }
+            ProductImage::insert($images);
+            
+            $variant_prices = [];
+            foreach (json_decode($request->product_variant_prices) as $variant_price) {
+                $variants = explode('/',$variant_price->title);
+                $variant_prices[] = [
+                    'product_variant_one'       =>  !empty($variants[0]) ? $variants[0] : null,
+                    'product_variant_two'       =>  !empty($variants[1]) ? $variants[1] : null,
+                    'product_variant_three'     =>  !empty($variants[2]) ? $variants[2] : null,
+                    'price'                     =>  $variant_price->price,
+                    'stock'                     =>  $variant_price->stock,
+                    'product_id'                =>  $product_id,
+                    'created_at'                =>  now(),
+                    'updated_at'                =>  now(),
+                ];
+            }
+
+            foreach (json_decode($request->product_variant) as $variant) {
+                foreach ($variant->tags as $key => $tag) {
+                    $pvInfo = ProductVariant::create([
+                        'variant'       =>  $tag,
+                        'variant_id'    =>  (int)$variant->option,
+                        'product_id'    =>  $product_id
+                    ]);
+
+                    foreach($variant_prices as $k => $vp){
+                        if ($vp['product_variant_one'] == $tag) {
+                            $variant_prices[$k]['product_variant_one'] = $pvInfo->id;
+                        }
+                        if ($vp['product_variant_two'] == $tag) {
+                            $variant_prices[$k]['product_variant_two'] = $pvInfo->id;
+                        }
+                        if ($vp['product_variant_three'] == $tag) {
+                            $variant_prices[$k]['product_variant_three'] = $pvInfo->id;
+                        }
+                    }
+                }
+            }
+            ProductVariantPrice::insert($variant_prices);
+            DB::commit();
+            return response()->json(['success'  =>  'Successfully Saved']);
+        } catch (\Throwable $th) {
+            DB::rollback();
+            return response()->json(['errors' => ['There is a problem please try again',$th]]);
+        }
     }
 
 
