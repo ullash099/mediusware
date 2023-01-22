@@ -1,8 +1,233 @@
-import axios from "axios"
-import React from 'react'
+import React, { useState, useEffect, useCallback } from "react"
 import ReactDOM from "react-dom"
+import axios from "axios"
+import { useDropzone } from "react-dropzone"
+import { TagsInput } from "react-tag-input-component"
+import { ToastContainer } from "react-toastify"
+import { ShowToast } from "./Context"
+
+const thumbsContainer = {
+    display: "flex",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 16
+};
+
+const thumb = {
+    display: "inline-flex",
+    borderRadius: 2,
+    border: "1px solid #eaeaea",
+    marginBottom: 8,
+    marginRight: 8,
+    width: 100,
+    height: 100,
+    padding: 4,
+    boxSizing: "border-box"
+};
+
+const thumbInner = {
+    display: "flex",
+    minWidth: 0,
+    overflow: "hidden"
+};
+
+const img = {
+    display: "block",
+    width: "auto",
+    height: "100%"
+};
 
 export default function UpdateProduct(props) {
+    const [variants, setVariants] = useState([]);
+    const [productData, setProductData] = useState({
+        id: 0,
+        product_name: "",
+        product_sku: "",
+        description: "",
+        images: [],
+        product_variant: [],
+        product_variant_prices: []
+    });
+
+    const onDrop = useCallback(acceptedFiles => {
+        const images = acceptedFiles.map(file =>
+            Object.assign(file, {
+                preview: URL.createObjectURL(file)
+            })
+        );
+        setProductData(prevState => ({
+            ...prevState,
+            images: [...prevState.images, ...images]
+        }));
+    }, []);
+
+    const { getRootProps, getInputProps, isDragActive } = useDropzone({
+        accept: {
+            "image/*": []
+        },
+        onDrop
+    });
+
+    // on change form input
+    const onInputChange = (name, value) => {
+        setProductData(prevState => ({
+            ...prevState,
+            [name]: value
+        }));
+    };
+
+    // handle variant change
+    const handleVariantChange = (index, value) => {
+        setProductData(prevState => ({
+            ...prevState,
+            product_variant: prevState.product_variant.map((item, itemIndex) =>
+                itemIndex === index
+                    ? {
+                          ...item,
+                          option: value
+                      }
+                    : item
+            )
+        }));
+    };
+
+    // handle variant remove
+    const handleVariantRemove = index => {
+        setProductData(prevState => ({
+            ...prevState,
+            product_variant: prevState.product_variant.filter(
+                (item, itemIndex) => itemIndex !== index
+            )
+        }));
+    };
+
+    // handle variant tags add
+    const handleVariantTagAdd = (index, tags) => {
+        setProductData(prevState => ({
+            ...prevState,
+            product_variant: prevState.product_variant.map((item, itemIndex) =>
+                itemIndex === index
+                    ? {
+                          ...item,
+                          tags
+                      }
+                    : item
+            )
+        }));
+    };
+
+    // handle variant price change
+    const handleVariantPriceChange = (index, updatedItem) => {
+        setProductData(prevState => ({
+            ...prevState,
+            product_variant_prices: prevState.product_variant_prices.map(
+                (item, itemIndex) => (itemIndex === index ? updatedItem : item)
+            )
+        }));
+    };
+
+    // combination algorithm
+    const getCombn = (arr, pre) => {
+        pre = pre || "";
+        if (!arr.length) {
+            return pre;
+        }
+
+        let ans = arr[0].reduce(function(ans, value) {
+            return ans.concat(getCombn(arr.slice(1), pre + value + "/"));
+        }, []);
+        return ans;
+    };
+
+    // it will push a new object into product variant
+    const newVariant = () => {
+        let all_variants = variants.map(el => el.id);
+        let selected_variants = productData.product_variant.map(el => el.option);
+        let available_variants = all_variants.filter(
+            entry1 => !selected_variants.some(entry2 => entry1 == entry2)
+        );
+
+        setProductData(prevState => ({
+            ...prevState,
+            product_variant: [
+                ...prevState.product_variant,
+                {
+                    option: available_variants[0],
+                    tags: []
+                }
+            ]
+        }));
+    };
+
+    // check the variant and render all the combination
+    const checkVariant = product_variant => {
+        let tags = [];
+        const product_variant_prices = [];
+        productData.product_variant.forEach(item => {
+            tags.push(item.tags);
+        });
+
+        const comn = getCombn(tags);
+        if (Array.isArray(comn)) {
+            comn.forEach(item => {
+                product_variant_prices.push({
+                    title: item,
+                    price: 0,
+                    stock: 0
+                });
+            });
+        }
+
+        setProductData(prevState => ({ ...prevState, product_variant_prices }));
+    };
+
+    // store product into database
+    const saveProduct = async () => {
+        const form = new FormData()
+
+        form.append(`id`, productData.id)
+        form.append(`title`, productData.product_name)
+        form.append(`sku`, productData.product_sku)
+        form.append(`description`, productData.description)
+        form.append(`product_variant`, JSON.stringify(productData.product_variant))
+        form.append(`product_variant_prices`, JSON.stringify(productData.product_variant_prices))
+
+        Object.values(productData.images).map((image,i)=>{
+            form.append(`files[${i}]`, image)
+        })
+
+        await axios.post(`/product/${productData.id}?_method=PUT`,form)
+        .then(response => {
+            let info = response.data
+            
+            if(info.errors){
+                (info.errors).map((error)=>(
+                    ShowToast({ type : 'error', msg  : error })
+                ))
+            }
+            else if(info.success){
+                ShowToast({ type : 'success', msg  : info.success })
+            }
+        })
+        .catch(error => {
+            console.log(error);
+        });
+    };
+
+    const thumbs = productData.images.map(file => {
+        <div style={thumb} key={file.name}>
+            <div style={thumbInner}>
+                <img
+                    src={file.preview}
+                    style={img}
+                    // Revoke data uri after image is loaded
+                    onLoad={() => {
+                        URL.revokeObjectURL(file.preview);
+                    }}
+                />
+            </div>
+        </div>
+    });
 
     const handleGetStartUpData = async () => {
         let paths = (window.location.pathname).substring(1).split("/")
@@ -10,7 +235,57 @@ export default function UpdateProduct(props) {
         await axios.get(`/api/product/${id}`)
         .then(function (response) {
             let info = response.data
-            console.log(info);
+            let product = info.productInfo
+
+            setVariants(info.variants);
+            let productVariants = []
+            Object.values(product.variants).map(variant=>{
+                if (Object.keys(productVariants).length > 0) {
+                    Object.values(productVariants).map((pv,i)=>{
+                        if (pv.option == variant.variant_id) {
+                            productVariants[i] = {
+                                option : variant.variant_id,
+                                tags: [...productVariants[i].tags,variant.variant]
+                            }
+                        } else {
+                            productVariants.push({
+                                option : variant.variant_id,
+                                tags: [variant.variant]
+                            })
+                        }
+                    })
+                }
+                else{
+                    productVariants.push({
+                        option : variant.variant_id,
+                        tags: [variant.variant]
+                    })
+                }
+            })
+
+            let variant_prices = []
+            Object.values(product.variant_prices).map(price=>{
+                let title = price.variant_one ? price.variant_one.variant : ``
+                title += price.variant_two ? ` / ${price.variant_two.variant}` : ``
+                title += price.variant_three ? ` / ${price.variant_three.variant}` : ``
+
+                variant_prices.push({
+                    title : title,
+                    price: price.price,
+                    stock: price.stock
+                })
+            })
+
+            setProductData({
+                ...productData,
+                id: product.id,
+                product_name: product.title,
+                product_sku: product.sku,
+                description: product.description,
+                images: [],
+                product_variant: productVariants,
+                product_variant_prices: variant_prices
+            })
         })
         .catch(function (error) {
             if(error.request && error.request.status == 401){
@@ -25,8 +300,233 @@ export default function UpdateProduct(props) {
     },[props])
 
     return (
-        <div>UpdateProduct</div>
-    )
+        <section>
+            <div className="row">
+                <div className="col-md-6">
+                    <div className="card shadow mb-4">
+                        <div className="card-body">
+                            <div className="form-group">
+                                <label htmlFor="">Product Name</label>
+                                <input
+                                    type="text"
+                                    placeholder="Product Name"
+                                    className="form-control"
+                                    value={productData.product_name}
+                                    onChange={e =>
+                                        onInputChange(
+                                            "product_name",
+                                            e.target.value
+                                        )
+                                    }
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label htmlFor="">Product SKU</label>
+                                <input
+                                    type="text"
+                                    value={productData.product_sku}
+                                    placeholder="Product SKU"
+                                    className="form-control"
+                                    onChange={e =>
+                                        onInputChange(
+                                            "product_sku",
+                                            e.target.value
+                                        )
+                                    }
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label htmlFor="">Description</label>
+                                <textarea
+                                    cols="30"
+                                    rows="4"
+                                    className="form-control"
+                                    value={productData.description}
+                                    onChange={e =>
+                                        onInputChange(
+                                            "description",
+                                            e.target.value
+                                        )
+                                    }
+                                ></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="card shadow mb-4">
+                        <div className="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                            <h6 className="m-0 font-weight-bold text-primary">
+                                Media
+                            </h6>
+                        </div>
+                        <div
+                            className="card-body border"
+                            {...getRootProps({ className: "dropzone" })}
+                        >
+                            <input className="p-5" {...getInputProps()} />
+                            <p className="p-5 text-center m-3 border">
+                                Drop files here to upload
+                            </p>
+                        </div>
+                        <aside style={thumbsContainer}>{thumbs}</aside>
+                    </div>
+                </div>
+
+                <div className="col-md-6">
+                    <div className="card shadow mb-4">
+                        <div className="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                            <h6 className="m-0 font-weight-bold text-primary">
+                                Variants
+                            </h6>
+                        </div>
+                        <div className="card-body">
+                            {productData.product_variant.map((item, index) => (
+                                <div className="row" key={index}>
+                                    <div className="col-md-4">
+                                        <div className="form-group">
+                                            <label htmlFor="">Option</label>
+                                            <select value={productData.product_variant[index].option}
+                                                className="form-control"
+                                                onChange={e =>
+                                                    handleVariantChange(
+                                                        index,
+                                                        e.target.value
+                                                    )
+                                                }
+                                            >
+                                                {variants.map((variant,vi) => (
+                                                    <option key={vi} value={variant.id}>
+                                                        {variant.title}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="col-md-8">
+                                        <div className="form-group">
+                                            <label
+                                                className="float-right text-primary"
+                                                style={{
+                                                    cursor: "pointer"
+                                                }}
+                                                onClick={() =>
+                                                    handleVariantRemove(index)
+                                                }
+                                            >
+                                                Remove
+                                            </label>
+                                            <label>.</label>
+                                            <TagsInput
+                                                value={item.tags}
+                                                onChange={_tags =>
+                                                    handleVariantTagAdd(
+                                                        index,
+                                                        _tags
+                                                    )
+                                                }
+                                                className="form-control"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="card-footer">
+                            <button
+                                className="btn btn-primary"
+                                onClick={newVariant}
+                            >
+                                Add another option
+                            </button>
+                        </div>
+
+                        <div className="card-header text-uppercase">
+                            Preview
+                        </div>
+                        <div className="card-body">
+                            <div className="table-responsive">
+                                <table className="table">
+                                    <thead>
+                                        <tr>
+                                            <td>Variant</td>
+                                            <td>Price</td>
+                                            <td>Stock</td>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {productData.product_variant_prices.map(
+                                            (variant_price, index) => (
+                                                <tr key={index}>
+                                                    <td>
+                                                        {variant_price.title}
+                                                    </td>
+                                                    <td>
+                                                        <input
+                                                            type="text"
+                                                            className="form-control"
+                                                            value={
+                                                                variant_price.price
+                                                            }
+                                                            onChange={e =>
+                                                                handleVariantPriceChange(
+                                                                    index,
+                                                                    {
+                                                                        ...variant_price,
+                                                                        price:
+                                                                            e
+                                                                                .target
+                                                                                .value
+                                                                    }
+                                                                )
+                                                            }
+                                                        />
+                                                    </td>
+                                                    <td>
+                                                        <input
+                                                            type="text"
+                                                            className="form-control"
+                                                            value={
+                                                                variant_price.stock
+                                                            }
+                                                            onChange={e =>
+                                                                handleVariantPriceChange(
+                                                                    index,
+                                                                    {
+                                                                        ...variant_price,
+                                                                        stock:
+                                                                            e
+                                                                                .target
+                                                                                .value
+                                                                    }
+                                                                )
+                                                            }
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            )
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button
+                type="submit"
+                className="btn btn-lg btn-primary"
+                onClick={saveProduct}
+            >
+                Save
+            </button>
+            <button type="button" className="btn btn-secondary btn-lg ml-2">
+                Cancel
+            </button>
+
+            <ToastContainer />
+        </section>
+    );
 }
 if (document.getElementById('updateProduct')) {  
     const element = document.getElementById('updateProduct')

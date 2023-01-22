@@ -154,9 +154,10 @@ class ProductController extends Controller
 
     public function validation(Request $request)
     {
+        $id = $request->id ?? null;
         return Validator::make($request->all(), [
-            'title'                     => 'required|max:250|unique:products,title,',
-            'sku'                       => 'required|max:250|unique:products,sku,',
+            'title'                     => 'required|max:250|unique:products,title,'.$id,
+            'sku'                       => 'required|max:250|unique:products,sku,'.$id,
             'description'               => 'required|max:6000',
             'product_variant.*'         => 'required',
             'product_variant_prices.*'  => 'required',
@@ -210,9 +211,9 @@ class ProductController extends Controller
             foreach (json_decode($request->product_variant_prices) as $variant_price) {
                 $variants = explode('/',$variant_price->title);
                 $variant_prices[] = [
-                    'product_variant_one'       =>  !empty($variants[0]) ? $variants[0] : null,
-                    'product_variant_two'       =>  !empty($variants[1]) ? $variants[1] : null,
-                    'product_variant_three'     =>  !empty($variants[2]) ? $variants[2] : null,
+                    'product_variant_one'       =>  !empty($variants[0]) ? trim($variants[0]) : null,
+                    'product_variant_two'       =>  !empty($variants[1]) ? trim($variants[1]) : null,
+                    'product_variant_three'     =>  !empty($variants[2]) ? trim($variants[2]) : null,
                     'price'                     =>  $variant_price->price,
                     'stock'                     =>  $variant_price->stock,
                     'product_id'                =>  $product_id,
@@ -284,7 +285,88 @@ class ProductController extends Controller
      */
     public function update(Request $request, Product $product)
     {
-        //
+        $isValid = $this->validation($request);
+        if ($isValid->fails()) {
+            return response()->json(['errors' => $isValid->errors()->all()]);
+        }
+        $product = [
+            'title'         =>  $request->title,
+            'sku'           =>  $request->sku,
+            'description'   =>  $request->description
+        ];
+        
+        DB::beginTransaction();
+        try {
+            $product_id = $request->id;
+            ProductVariant::where('product_id',$product_id)->delete();
+            ProductVariantPrice::where('product_id',$product_id)->delete();
+
+            Product::where('id',$product_id)->update($product);
+
+            $images = [];
+            if ($request->file('files')) {
+                $num_elements = 0;
+                $files = $request->file('files');
+                while ($num_elements < count($files)) {
+                    $upload = $files[$num_elements];
+    
+                    $mime = $upload->getClientOriginalExtension();
+                    $name = md5(rand(1,time())).'.'.$mime;
+                    $path = $upload->move('image',$name);
+                    $images[] = [
+                        'product_id'    =>  $product_id,
+                        'file_path'     =>  $path,
+                        'created_at'    =>  now(),
+                        'updated_at'    =>  now(),
+                    ];
+                    $num_elements++;
+                }
+            }
+            ProductImage::insert($images);
+            
+            $variant_prices = [];
+            foreach (json_decode($request->product_variant_prices) as $variant_price) {
+                $variants = explode('/',$variant_price->title);
+                $variant_prices[] = [
+                    'product_variant_one'       =>  !empty($variants[0]) ? trim($variants[0]) : null,
+                    'product_variant_two'       =>  !empty($variants[1]) ? trim($variants[1]) : null,
+                    'product_variant_three'     =>  !empty($variants[2]) ? trim($variants[2]) : null,
+                    'price'                     =>  $variant_price->price,
+                    'stock'                     =>  $variant_price->stock,
+                    'product_id'                =>  $product_id,
+                    'created_at'                =>  now(),
+                    'updated_at'                =>  now(),
+                ];
+            }
+
+            foreach (json_decode($request->product_variant) as $variant) {
+                foreach ($variant->tags as $key => $tag) {
+                    $pvInfo = ProductVariant::create([
+                        'variant'       =>  $tag,
+                        'variant_id'    =>  (int)$variant->option,
+                        'product_id'    =>  $product_id
+                    ]);
+
+                    foreach($variant_prices as $k => $vp){
+                        if ($vp['product_variant_one'] == $tag) {
+                            $variant_prices[$k]['product_variant_one'] = $pvInfo->id;
+                        }
+                        if ($vp['product_variant_two'] == $tag) {
+                            $variant_prices[$k]['product_variant_two'] = $pvInfo->id;
+                        }
+                        if ($vp['product_variant_three'] == $tag) {
+                            $variant_prices[$k]['product_variant_three'] = $pvInfo->id;
+                        }
+                    }
+                }
+            }
+            ProductVariantPrice::insert($variant_prices);
+            DB::commit();
+            return response()->json(['success'  =>  'Successfully Saved']);
+        } catch (\Throwable $th) {
+            DB::rollback();
+            return response()->json(['errors' => ['There is a problem please try again',$th]]);
+        }
     }
 
     /**

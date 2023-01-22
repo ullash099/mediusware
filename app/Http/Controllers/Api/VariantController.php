@@ -28,7 +28,7 @@ class VariantController extends Controller
         ->with(['variants' => function($vq){
             $vq->with('variant_info');
         }])
-        ->where('id',$id)->get();
+        ->where('id',$id)->first();
         return response()->json([
             'variants'      =>  $variants,
             'productInfo'   =>  $productInfo,
