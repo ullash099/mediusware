@@ -66,7 +66,7 @@ class ProductController extends Controller
                     $q->whereDate('created_at', '=', date('Y-m-d',strtotime($date)));
                 }
             })
-            ->with(['variants' => function ($query) use ($variantList,$min_price,$max_price) {
+            ->with(['variant_prices' => function ($query) use ($variantList,$min_price,$max_price) {
                 if (!empty($variantList)){
                     $query->where(function($vq) use ($variantList){
                         $vq->whereIn('product_variant_one',$variantList)
@@ -82,8 +82,8 @@ class ProductController extends Controller
 
             #dd(DB::getQueryLog());
         } else {
-            $datatable = Product::with(['variants' => function ($query) {
-                $query->with('variant_one','variant_two','variant_three');
+            $datatable = Product::with(['variant_prices' => function($vpq){
+                $vpq->with('variant_one','variant_two','variant_three');
             }])->latest()->paginate(2);
         }
 
@@ -158,8 +158,8 @@ class ProductController extends Controller
             'title'                     => 'required|max:250|unique:products,title,',
             'sku'                       => 'required|max:250|unique:products,sku,',
             'description'               => 'required|max:6000',
-            'product_variant'           => 'required',
-            'product_variant_prices'    => 'required',
+            'product_variant.*'         => 'required',
+            'product_variant_prices.*'  => 'required',
         ]);
     }
     /**
@@ -174,7 +174,6 @@ class ProductController extends Controller
         if ($isValid->fails()) {
             return response()->json(['errors' => $isValid->errors()->all()]);
         }
-
         $product = [
             'title'         =>  $request->title,
             'sku'           =>  $request->sku,

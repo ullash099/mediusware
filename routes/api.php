@@ -19,3 +19,4 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
 });
 
 Route::get('/variants', 'Api\VariantController@index');
+Route::get('product/{id}', 'Api\VariantController@product');

@@ -1,6 +1,6 @@
 import axios from "axios"
 import React from 'react'
-import { Button, Card, Col, InputGroup, Pagination, Row, Spinner, Table } from 'react-bootstrap';
+import { Card, Col, InputGroup, Pagination, Row, Spinner, Table } from 'react-bootstrap';
 import ReactDOM from "react-dom"
 import Select from 'react-select'
 
@@ -273,7 +273,6 @@ export default function ProductList(props) {
                                         Object.values(datatable.infos).map((info,index)=>(
                                             <tr key={index}>
                                                 <td>
-                                                    {/* {index+1} */}
                                                     {datatable.current_page == 1 ? (index+1) :
                                                         ((index+1)+(datatable.per_page*(datatable.current_page-1)))
                                                     }
@@ -284,13 +283,13 @@ export default function ProductList(props) {
                                                 </td>
                                                 <td>{(info.description).slice(0, 80)}...</td>
                                                 <td>
-                                                    {Object.keys(info.variants).length > 0 ?
-                                                        Object.values(info.variants).map((variant,i)=>(
+                                                    {Object.keys(info.variant_prices).length > 0 ?
+                                                        Object.values(info.variant_prices).map((variant,i)=>(
                                                             <Row key={i}>
                                                                 <Col>
-                                                                    {variant.variant_one ? `${variant.variant_one.variant} /` : ``}
-                                                                    {variant.variant_two ? `${variant.variant_two.variant} /` : ``}
-                                                                    {variant.variant_three ? `${variant.variant_three.variant}` : ``}
+                                                                    {variant.variant_one ? `${variant.variant_one.variant}` : ``}
+                                                                    {variant.variant_two ? ` / ${variant.variant_two.variant}` : ``}
+                                                                    {variant.variant_three ? ` / ${variant.variant_three.variant}` : ``}
                                                                 </Col>
                                                                 <Col>Price : {parseFloat(variant.price).toFixed(2)}</Col>
                                                                 <Col>InStock : {parseFloat(variant.stock).toFixed(2)}</Col>
@@ -299,7 +298,7 @@ export default function ProductList(props) {
                                                     ):(``)}
                                                 </td>
                                                 <td className="text-center">
-                                                    <Button variant="success">Edit</Button>
+                                                    <a href={`/product/${info.id}/edit`} className="btn btn-success">Edit</a>
                                                 </td>
                                             </tr>
                                         ))
